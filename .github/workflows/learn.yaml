@@ -17,25 +17,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: WS before Checkout
-        run: ls -la
-
       - name: Checkout
         uses: actions/checkout@v7
-
-      - name: Inspect workspace after checkout
-        run: ls -la
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
       
-      - name: Show SDk info
-        run: dotnet --info
-      
       - name: Restore dependecies
-        run: dotnet restore gh-actions.csproj
+        run: dotnet restore gh-actions.sln
 
       - name: Build the app
         run: dotnet build gh-actions.csproj --configuration Release --no-restore
+      
+      - name: Run tests
+        run: dotnet test tests/WeatherApi.Tests/WeatherApi.Tests.csproj --configuration Release --no-build --logger trx --results-directory TestResults
