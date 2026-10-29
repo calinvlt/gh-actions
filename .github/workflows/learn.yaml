@@ -89,13 +89,31 @@ jobs:
           if-no-files-found: error
 
   report:
-    name: Report package details
+    name: Inspect application package
     needs: package
     runs-on: ubuntu-latest
 
     steps:
-      - name: Show package name
+      - name: Download app package
+        uses: actions/download-artifact@v8
+        with:
+          name:  ${{ needs.package.outputs.artifact_name }}
+          path: ${{ runner.temp}}/doanloaded-api
+      - name: Inspect files
+        env: 
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/downloaded-api
+        run: |
+          ls -lah "$PACKAGE_DIRECTORY"
+          test -s "$PACKAGE_DIRECTORY/gh-actions.dll"
+          test -s "$PACKAGE_DIRECTORY/gh-actions.deps.json"
+          test -s "$PACKAGE_DIRECTORY/gh-actions.runtimeconfig.json"
+      - name: Write workflow summary
         env:
           ARTIFACT_NAME: ${{ needs.package.outputs.artifact_name }}
         run: |
-          echo "Package ready: $ARTIFACT_NAME"
+          {
+            echo "### Application package"
+            echo ""
+            echo "- Artifact: $ARTIFACT_NAME"
+            echo "- Required application files are present."
+          } >> "$GITHUB_STEP_SUMMARY"
