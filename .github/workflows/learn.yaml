@@ -21,6 +21,9 @@ jobs:
         run: |
           pwd
           uname -a
+      
+      - name: Deliberately fail
+        run: exit 1
 
       - name: Show repo info
         env:
