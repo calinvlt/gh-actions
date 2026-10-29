@@ -91,10 +91,11 @@ jobs:
   report:
     name: Report package details
     needs: package
-    runs_on: ubuntu-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Show package name
         env:
           ARTIFACT_NAME: ${{ needs.package.outputs.artifact_name }}
-        run: echo "Package ready: $ARTIFACT_NAME"
+        run: |
+          echo "Package ready: $ARTIFACT_NAME"
