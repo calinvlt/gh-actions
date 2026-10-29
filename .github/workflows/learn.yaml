@@ -98,7 +98,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name:  ${{ needs.package.outputs.artifact_name }}
-          path: ${{ runner.temp}}/doanloaded-api
+          path: ${{ runner.temp}}/downloaded-api
       - name: Inspect files
         env: 
           PACKAGE_DIRECTORY: ${{ runner.temp }}/downloaded-api
