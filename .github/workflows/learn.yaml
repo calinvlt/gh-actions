@@ -3,10 +3,17 @@ name: Learn GH Actions
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+    
   workflow_dispatch: 
 
 permissions: 
   contents: read
+
+env:
+  DOTNET_VERSION: "10.0.x"
+  BUILD_CONFIGURATION: Release
 
 jobs:
   build:
@@ -14,25 +21,80 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: WS before Checkout
-        run: ls -la
-
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Inspect workspace after checkout
-        run: ls -la
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Restore dependecies
+        run: dotnet restore gh-actions.sln
+
+      - name: Build the application and tests
+        run: dotnet build gh-actions.sln --configuration "$BUILD_CONFIGURATION" --no-restore
+      
+      - name: Run tests
+        id: tests
+        run: dotnet test tests/WeatherApi.Tests/WeatherApi.Tests.csproj --configuration "$BUILD_CONFIGURATION" --no-build --logger trx --results-directory TestResults
+      
+      - name: Upload test
+        if: ${{ !cancelled() && steps.tests.outcome != 'skipped'}}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: TestResults/**/*.trx
+          retention-days: 7
+          if-no-files-found: warn
+      
+      - name: Explain test failure
+        if: ${{ failure() && steps.tests.outcome == 'failure'}}
+        run: echo "Tests failed. Inspect the Run tests log and download the test-results artifact."
+
+  package:
+    name: Package the API
+    needs: build
+    runs-on: ubuntu-latest
+
+    outputs:
+      artifact_name: ${{ steps.metadata.outputs.artifact_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
-      
-      - name: Show SDk info
-        run: dotnet --info
-      
-      - name: Restore dependecies
-        run: dotnet restore gh-actions.csproj
 
-      - name: Build the app
-        run: dotnet build gh-actions.csproj --configuration Release --no-restore
+      - name: Publish the application
+        run: >
+          dotnet publish gh-actions.csproj
+          --configuration "$BUILD_CONFIGURATION"
+          --no-self-contained
+          --output "${{ runner.temp }}/weather-api"
+      
+      - name: Generate package metadata
+        id: metadata
+        run: echo "artifact_name=weather-api-$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Uplodad app package
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.metadata.outputs.artifact_name }}
+          path: ${{ runner.temp }}//weather-api/
+          retention-days: 7
+          if-no-files-found: error
+
+  report:
+    name: Report package details
+    needs: package
+    runs_on: ubuntu-latest
+
+    steps:
+      - name: Show package name
+        env:
+          ARTIFACT_NAME: ${{ needs.package.outputs.artifact_name }}
+        run: echo "Package ready: $ARTIFACT_NAME"
