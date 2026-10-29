@@ -20,6 +20,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Inspect workspace after checkout
+        run: ls -la
+
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
