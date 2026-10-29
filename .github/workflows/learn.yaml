@@ -28,9 +28,13 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: |
+            packages.lock.json
+            tests/WeatherApi.Tests/packages.lock.json
       
       - name: Restore dependecies
-        run: dotnet restore gh-actions.sln
+        run: dotnet restore gh-actions.sln --locked-mode
 
       - name: Build the application and tests
         run: dotnet build gh-actions.sln --configuration "$BUILD_CONFIGURATION" --no-restore
@@ -68,11 +72,15 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
+      
+      - name: Restore application dependencies
+        run: dotnet restore gh-actions.csproj --locked-mode
 
       - name: Publish the application
         run: >
           dotnet publish gh-actions.csproj
           --configuration "$BUILD_CONFIGURATION"
+          --no-restore
           --no-self-contained
           --output "${{ runner.temp }}/weather-api"
       
