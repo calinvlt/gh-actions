@@ -1,0 +1,6 @@
+@gh_actions_HostAddress = http://localhost:5200
+
+GET {{gh_actions_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
