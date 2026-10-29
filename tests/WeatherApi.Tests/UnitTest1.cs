@@ -41,7 +41,7 @@ public class WeatherForecastTests
         var forecasts = json.RootElement;
 
         Assert.Equal(JsonValueKind.Array, forecasts.ValueKind);
-        Assert.Equal(5, forecasts.GetArrayLength());
+        Assert.Equal(51, forecasts.GetArrayLength());
 
         foreach (var forecast in forecasts.EnumerateArray())
         {
