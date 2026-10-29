@@ -107,6 +107,7 @@ jobs:
           test -s "$PACKAGE_DIRECTORY/gh-actions.dll"
           test -s "$PACKAGE_DIRECTORY/gh-actions.deps.json"
           test -s "$PACKAGE_DIRECTORY/gh-actions.runtimeconfig.json"
+          test -s "$PACKAGE_DIRECTORY/missing.dll"
       - name: Write workflow summary
         env:
           ARTIFACT_NAME: ${{ needs.package.outputs.artifact_name }}
