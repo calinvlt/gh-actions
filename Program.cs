@@ -1,3 +1,5 @@
+THIS_WILL_NOT_COMPILE
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
