@@ -1,0 +1,31 @@
+name: Learn GH Actions
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: 
+
+permissions: 
+  contents: read
+
+jobs:
+  explore:
+    name: Explore the runner
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Print a message
+        run: echo "Hello world!"
+
+      - name: Show the runner
+        run: |
+          pwd
+          uname -a
+
+      - name: Show repo info
+        env:
+          REPO: ${{ github.repository }}
+          BRANCH: $${{ github.ref_name }}
+        run: |
+          echo "Repo $REPO"
+          echo "Branch $BRANCH"
