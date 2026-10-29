@@ -3,7 +3,7 @@ run-name: ${{ github.actor }}] is testing out GitHub Actions
 on: [push, pull_request]
 jobs:
   Explore-Actions:
-    runs-on: ubuntu-lastest
+    runs-on: ubuntu-latest
     steps:
       - run: echo "Triggered by a ${{ github.event_name}} event"
       - run: echo "Running on ${{ runner.os }}"
