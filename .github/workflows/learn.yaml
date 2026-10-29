@@ -32,4 +32,18 @@ jobs:
         run: dotnet build gh-actions.sln --configuration Release --no-restore
       
       - name: Run tests
+        id: tests
         run: dotnet test tests/WeatherApi.Tests/WeatherApi.Tests.csproj --configuration Release --no-build --logger trx --results-directory TestResults
+      
+      - name: Upload test
+        if: ${{ !cancelled() && steps.tests.outcome != 'skipped'}}
+        uses: actions/upload_artifact@v7
+        with:
+          name: test-results
+          path: TestResults/**/*.trx
+          retention-days: 7
+          if-no-files-found: warn
+      
+      - name: Explain test failure
+        if: ${{ failure() && steps.tests.outcome == 'failure'}}
+        run: echo "Tests failed. Inspect the Run tests log and download the test-results artifact."
