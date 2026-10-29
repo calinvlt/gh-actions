@@ -9,26 +9,24 @@ permissions:
   contents: read
 
 jobs:
-  explore:
-    name: Explore the runner
+  build:
+    name: Build the API
     runs-on: ubuntu-latest
 
     steps:
-      - name: Print a message
-        run: echo "Hello world!"
+      - name: Checkout
+        uses: actions/checkout@v7
 
-      - name: Show the runner
-        run: |
-          pwd
-          uname -a
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
       
-      - name: Deliberately fail
-        run: exit 1
+      - name: Show SDk info
+        run: dotnet --info
+      
+      - name: Restore dependecies
+        run: dotnet restore gh-actions.csproj
 
-      - name: Show repo info
-        env:
-          REPO: ${{ github.repository }}
-          BRANCH: $${{ github.ref_name }}
-        run: |
-          echo "Repo $REPO"
-          echo "Branch $BRANCH"
+      - name: Build the app
+        run: dotnet build gh-actions.csproj --configuration Release --no-restore
