@@ -65,9 +65,9 @@ jobs:
       - name: Publish the application
         run: >
           dotnet publish gh-actions.csproj
-            --configuration Release
-            --no-self-contained
-            --output "${{ runner.temp }}/weather-api"
+          --configuration Release
+          --no-self-contained
+          --output "${{ runner.temp }}/weather-api"
 
       - name: Uplodad app package
         uses: actions/upload-artifact@v7
