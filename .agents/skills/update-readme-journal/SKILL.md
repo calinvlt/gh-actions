@@ -7,9 +7,10 @@ description: Maintain this repository's README learning journal after commits, m
 
 After each commit in this repository, update `README.md` so its learning journal includes that commit.
 
-- Read the existing `Commit history and lessons learned` table before editing. Preserve its columns, wording style, and oldest-to-newest order.
-- Compare the table with `git log --reverse --oneline` and inspect missing commits using `git show --stat` and `git show` as needed. Document every missing commit once, including fixes and documentation changes.
-- Append a row with the actual abbreviated commit hash in backticks, a concise description of what changed, and the concrete lesson learned. Match the existing format: `| Commit | Short description | Lesson learned |`.
+- Read the existing `Commit history and lessons learned` table before editing. Preserve its columns, wording style, and newest-to-oldest order.
+- Compare the table with `git log --oneline` and inspect missing commits using `git show --stat` and `git show` as needed. Document every missing commit once, including fixes and documentation changes.
+- Insert each missing row in newest-to-oldest commit order, placing the latest commit directly below the table header. Include the actual abbreviated commit hash as a Markdown link to the full commit URL, a concise description of what changed, and the concrete lesson learned. Match the existing format: `| Commit | Short description | Lesson learned |`.
+- Link each commit using `[SHORT_HASH](https://github.com/calinvlt/gh-actions/commit/FULL_SHA)`. Resolve the full SHA from Git history; do not guess it.
 - Base descriptions on the committed changes. Do not invent hashes, changes, test results, or lessons unsupported by the diff. Escape literal pipes inside table cells.
 - Preserve existing entries and unrelated README content. Check that the Markdown table remains valid and entries are not duplicated.
 
