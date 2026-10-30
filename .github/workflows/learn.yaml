@@ -115,6 +115,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
       - name: Download app package
         uses: actions/download-artifact@v8
         with:
@@ -128,13 +133,58 @@ jobs:
           test -s "$PACKAGE_DIRECTORY/gh-actions.dll"
           test -s "$PACKAGE_DIRECTORY/gh-actions.deps.json"
           test -s "$PACKAGE_DIRECTORY/gh-actions.runtimeconfig.json"
+
+      - name: Smoke test published API
+        timeout-minutes: 2
+        shell: bash
+        env:
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/downloaded-api
+          ASPNETCORE_ENVIRONMENT: Production
+          DOTNET_ENVIRONMENT: Production
+        run: |
+          cd "$PACKAGE_DIRECTORY"
+
+          dotnet gh-actions.dll \
+            --urls "http://127.0.0.1:5080" \
+            > "$RUNNER_TEMP/weather-api.log" 2>&1 &
+
+          app_pid=$!
+
+          cleanup() {
+            kill "$app_pid" 2>/dev/null || true
+            wait "$app_pid" 2>/dev/null || true
+            cat "$RUNNER_TEMP/weather-api.log"
+          }
+
+          trap cleanup EXIT
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 15 \
+            --retry-connrefused \
+            --retry-delay 1 \
+            --retry-max-time 45 \
+            --max-time 3 \
+            --output "$RUNNER_TEMP/forecast.json" \
+            "http://127.0.0.1:5080/weatherforecast"
+
+          jq -e \
+            'type == "array" and length == 5' \
+            "$RUNNER_TEMP/forecast.json"
+
+          echo "Published API smoke test passed."
+
       - name: Write workflow summary
         env:
           ARTIFACT_NAME: ${{ needs.package.outputs.artifact_name }}
         run: |
           {
             echo "### Application package"
+            echo "- Published API started and passed its smoke test."
             echo ""
             echo "- Artifact: $ARTIFACT_NAME"
             echo "- Required application files are present."
           } >> "$GITHUB_STEP_SUMMARY"
+
