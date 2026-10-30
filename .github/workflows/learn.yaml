@@ -18,7 +18,16 @@ env:
 jobs:
   build:
     name: Build the API
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout
@@ -47,7 +56,7 @@ jobs:
         if: ${{ !cancelled() && steps.tests.outcome != 'skipped'}}
         uses: actions/upload-artifact@v7
         with:
-          name: test-results
+          name: test-results-${{ matrix.os }}
           path: TestResults/**/*.trx
           retention-days: 7
           if-no-files-found: warn
