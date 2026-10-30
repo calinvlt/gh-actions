@@ -7,6 +7,12 @@ on:
     branches: [main]
     
   workflow_dispatch: 
+    inputs:
+      deploy:
+        description: Deploy to Azure after validation
+        type: boolean
+        default: false
+        required: false
 
 permissions: 
   contents: read
@@ -196,7 +202,14 @@ jobs:
   deploy:
     name: Deploy to Azure
     needs: [package, report]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: >-
+      ${{ 
+        github.ref == 'refs/heads/main' && 
+        (
+          github.event_name == 'push' ||
+          (github.event_name == 'workflow_dispatch' && inputs.deploy)
+        )
+      }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
