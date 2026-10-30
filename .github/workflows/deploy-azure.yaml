@@ -1,0 +1,82 @@
+name: Deploy Azure app
+
+on:
+  workflow_call:
+    inputs:
+      artifact_name:
+        description: App artifact
+        required: true
+        type: string
+      
+      target_environment:
+        description: GitHub deployment environment
+        required: true
+        type: string
+  
+jobs:
+  deploy:
+    name: Deploy app
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      id-token: write
+
+    environment:
+      name: ${{ inputs.target_environment }}
+      url: ${{ vars.AZURE_WEBAPP_URL }}
+    
+    steps:
+      - name: Download validated application
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ runner.temp }}/deployment-package
+
+      - name: Sign in to Azure
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy application
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          package: ${{ runner.temp }}/deployment-package
+
+      - name: Verify live API
+        timeout-minutes: 5
+        shell: bash
+        env:
+          APP_URL: ${{ vars.AZURE_WEBAPP_URL }}
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 20 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            --retry-max-time 180 \
+            --max-time 10 \
+            --output "$RUNNER_TEMP/live-forecast.json" \
+            "${APP_URL%/}/weatherforecast"
+
+          jq -e \
+            'type == "array" and length == 5' \
+            "$RUNNER_TEMP/live-forecast.json"
+
+      - name: Write deployment summary
+        env:
+          APP_URL: ${{ vars.AZURE_WEBAPP_URL }}
+          ARTIFACT_NAME: ${{ inputs.artifact_name }}
+        run: |
+          {
+            echo "### Azure deployment"
+            echo ""
+            echo "- Package: $ARTIFACT_NAME"
+            echo "- Application: $APP_URL"
+            echo "- Live API returned five forecasts."
+          } >> "$GITHUB_STEP_SUMMARY"
