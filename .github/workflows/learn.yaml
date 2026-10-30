@@ -15,22 +15,41 @@ env:
   DOTNET_VERSION: "10.0.x"
   BUILD_CONFIGURATION: Release
 
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
-    name: Build the API
-    runs-on: ubuntu-latest
+    name: Build the API (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7
+        with:
+          persist-credentials: false
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: |
+            packages.lock.json
+            tests/WeatherApi.Tests/packages.lock.json
       
       - name: Restore dependecies
-        run: dotnet restore gh-actions.sln
+        run: dotnet restore gh-actions.sln --locked-mode
 
       - name: Build the application and tests
         run: dotnet build gh-actions.sln --configuration "$BUILD_CONFIGURATION" --no-restore
@@ -43,7 +62,7 @@ jobs:
         if: ${{ !cancelled() && steps.tests.outcome != 'skipped'}}
         uses: actions/upload-artifact@v7
         with:
-          name: test-results
+          name: test-results-${{ matrix.os }}
           path: TestResults/**/*.trx
           retention-days: 7
           if-no-files-found: warn
@@ -62,17 +81,23 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v7
+        with:
+          persist-credentials: false
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
+      
+      - name: Restore application dependencies
+        run: dotnet restore gh-actions.csproj --locked-mode
 
       - name: Publish the application
         run: >
           dotnet publish gh-actions.csproj
           --configuration "$BUILD_CONFIGURATION"
+          --no-restore
           --no-self-contained
           --output "${{ runner.temp }}/weather-api"
       
@@ -89,12 +114,151 @@ jobs:
           if-no-files-found: error
 
   report:
-    name: Report package details
+    name: Inspect application package
     needs: package
-    runs_on: ubuntu-latest
+    runs-on: ubuntu-latest
+    permissions: {}
 
     steps:
-      - name: Show package name
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Download app package
+        uses: actions/download-artifact@v8
+        with:
+          name:  ${{ needs.package.outputs.artifact_name }}
+          path: ${{ runner.temp}}/downloaded-api
+      - name: Inspect files
+        env: 
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/downloaded-api
+        run: |
+          ls -lah "$PACKAGE_DIRECTORY"
+          test -s "$PACKAGE_DIRECTORY/gh-actions.dll"
+          test -s "$PACKAGE_DIRECTORY/gh-actions.deps.json"
+          test -s "$PACKAGE_DIRECTORY/gh-actions.runtimeconfig.json"
+
+      - name: Smoke test published API
+        timeout-minutes: 2
+        shell: bash
+        env:
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/downloaded-api
+          ASPNETCORE_ENVIRONMENT: Production
+          DOTNET_ENVIRONMENT: Production
+        run: |
+          cd "$PACKAGE_DIRECTORY"
+
+          dotnet gh-actions.dll \
+            --urls "http://127.0.0.1:5080" \
+            > "$RUNNER_TEMP/weather-api.log" 2>&1 &
+
+          app_pid=$!
+
+          cleanup() {
+            kill "$app_pid" 2>/dev/null || true
+            wait "$app_pid" 2>/dev/null || true
+            cat "$RUNNER_TEMP/weather-api.log"
+          }
+
+          trap cleanup EXIT
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 15 \
+            --retry-connrefused \
+            --retry-delay 1 \
+            --retry-max-time 45 \
+            --max-time 3 \
+            --output "$RUNNER_TEMP/forecast.json" \
+            "http://127.0.0.1:5080/weatherforecast"
+
+          jq -e \
+            'type == "array" and length == 5' \
+            "$RUNNER_TEMP/forecast.json"
+
+          echo "Published API smoke test passed."
+
+      - name: Write workflow summary
         env:
           ARTIFACT_NAME: ${{ needs.package.outputs.artifact_name }}
-        run: echo "Package ready: $ARTIFACT_NAME"
+        run: |
+          {
+            echo "### Application package"
+            echo "- Published API started and passed its smoke test."
+            echo ""
+            echo "- Artifact: $ARTIFACT_NAME"
+            echo "- Required application files are present."
+          } >> "$GITHUB_STEP_SUMMARY"
+    
+  deploy:
+    name: Deploy to Azure
+    needs: [package, report]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      id-token: write
+
+    environment:
+      name: production
+      url: ${{ vars.AZURE_WEBAPP_URL }}
+
+    steps:
+      - name: Download validated application
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.package.outputs.artifact_name }}
+          path: ${{ runner.temp }}/deployment-package
+
+      - name: Sign in to Azure
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy application
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          package: ${{ runner.temp }}/deployment-package
+
+      - name: Verify live API
+        timeout-minutes: 5
+        shell: bash
+        env:
+          APP_URL: ${{ vars.AZURE_WEBAPP_URL }}
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 20 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            --retry-max-time 180 \
+            --max-time 10 \
+            --output "$RUNNER_TEMP/live-forecast.json" \
+            "${APP_URL%/}/weatherforecast"
+
+          jq -e \
+            'type == "array" and length == 5' \
+            "$RUNNER_TEMP/live-forecast.json"
+
+      - name: Write deployment summary
+        env:
+          APP_URL: ${{ vars.AZURE_WEBAPP_URL }}
+          ARTIFACT_NAME: ${{ needs.package.outputs.artifact_name }}
+        run: |
+          {
+            echo "### Azure deployment"
+            echo ""
+            echo "- Package: $ARTIFACT_NAME"
+            echo "- Application: $APP_URL"
+            echo "- Live API returned five forecasts."
+          } >> "$GITHUB_STEP_SUMMARY"
+
