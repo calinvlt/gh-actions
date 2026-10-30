@@ -192,4 +192,26 @@ jobs:
             echo "- Artifact: $ARTIFACT_NAME"
             echo "- Required application files are present."
           } >> "$GITHUB_STEP_SUMMARY"
+    
+  production_gate:
+    name: Production approval exercise
+    needs: [package, report]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions: {}
+
+    environment:
+      name: production
+
+    steps:
+      - name: Record approved package
+        env:
+          ARTIFACT_NAME: ${{ needs.package.outputs.artifact_name }}
+        run: |
+          {
+            echo "### Production approval exercise"
+            echo ""
+            echo "- Approved package: $ARTIFACT_NAME"
+            echo "- Approval gate passed; no application deployment was performed."
+          } >> "$GITHUB_STEP_SUMMARY"
 

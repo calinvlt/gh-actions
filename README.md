@@ -39,3 +39,5 @@ Each entry summarizes the changes and the lesson illustrated by that commit, fro
 | `94ab6b9` | Grouped workflow runs by workflow and Git ref with cancellation enabled. | Concurrency settings cancel older in-progress runs when newer runs supersede them. |
 | `7edee32` | Included the matrix OS in the build job's display name. | Descriptive job names make matrix results easier to distinguish. |
 | `1a93afd` | Added a smoke test that starts the published API, checks its response, and updates the summary. | Testing the downloaded package verifies runtime behavior; retries handle startup time, and an exit trap cleans up the process and prints logs. |
+| `97cc721` | Pinned checkout to a full commit SHA, disabled credential persistence, and removed permissions from the inspection job. | Pin actions to immutable revisions, avoid persisting checkout credentials, and grant jobs only the permissions they need. |
+| `644b63f` | Added weekly Dependabot updates for GitHub Actions and instructions for maintaining this journal. | Automate action dependency updates and use repository-specific guidance to keep documentation consistent. |
