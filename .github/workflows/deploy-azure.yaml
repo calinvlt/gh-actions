@@ -7,17 +7,23 @@ on:
         description: App artifact
         required: true
         type: string
-      
       target_environment:
         description: GitHub deployment environment
         required: true
         type: string
-  
+    
+    outputs:
+      app_url:
+        description: URL of the deployed app
+        value: ${{ jobs.deploy.outputs.app_url }}  
+
 jobs:
   deploy:
     name: Deploy app
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      app_url: ${{ steps.result.outputs.app_url }}
 
     permissions:
       id-token: write
@@ -67,6 +73,12 @@ jobs:
           jq -e \
             'type == "array" and length == 5' \
             "$RUNNER_TEMP/live-forecast.json"
+
+      - name: Export deployment URL
+        id: result
+        env:
+          APP_URL: ${{ vars.AZURE_WEBAPP_UERL }}
+        run: echo "app_url=$APP_URL" >> "$GITHUB_OUTPUT"
 
       - name: Write deployment summary
         env:

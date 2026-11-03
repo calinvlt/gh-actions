@@ -218,3 +218,16 @@ jobs:
     with:
       artifact_name: ${{ needs.package.outputs.artifact_name }}
       target_environment: production
+    
+  deployment_report:
+    name: Report deployed app
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions: {}
+
+    steps:
+      - name: Wrtite deployment result
+        env:
+          APP_URL: ${{ needs.deploy.outputs.app_url }}
+        run: |
+          echo "Deployed app: $APP_URL" >> "$GITHUB_STEP_SUMMARY"
